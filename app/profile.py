@@ -59,6 +59,11 @@ class BusinessProfile:
     # brief local): Nea usa `LLM_MODEL`.
     llm_path: str | None = None
     llm_model: str | None = None
+    # Video de bienvenida (bloque `welcomeMedia` del perfil): lo que el CRM
+    # manda por `POST /api/bot/messages/bienvenida` en la primera respuesta a
+    # cada contacto. `None` = no hay, o el CRM no lo conoce.
+    welcome_media_kind: str | None = None
+    welcome_media_caption: str | None = None
 
     def permite(self, clave: str) -> bool:
         """¿Está encendida esta herramienta? `escalar` siempre lo está: es la
@@ -95,7 +100,19 @@ def profile_from_payload(payload: dict[str, Any], default_name: str) -> Business
         role=str(prof.get("role") or "calificador"),
         tools=_herramientas(prof.get("tools")),
         **_ia(payload.get("llm")),
+        **_bienvenida(payload.get("welcomeMedia")),
     )
+
+
+def _bienvenida(valor: Any) -> dict[str, str | None]:
+    """El bloque `welcomeMedia` del perfil: `{kind, caption}` o `null`."""
+    if not isinstance(valor, dict) or not isinstance(valor.get("kind"), str):
+        return {"welcome_media_kind": None, "welcome_media_caption": None}
+    caption = valor.get("caption")
+    return {
+        "welcome_media_kind": valor["kind"],
+        "welcome_media_caption": (caption.strip() or None) if isinstance(caption, str) else None,
+    }
 
 
 def _ia(valor: Any) -> dict[str, str | None]:
