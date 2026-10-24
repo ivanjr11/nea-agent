@@ -254,6 +254,23 @@ class CrmClient:
         data: dict[str, Any] = resp.json()
         return data
 
+    async def send_welcome_media(self, conversation_id: str) -> dict[str, Any] | None:
+        """Pide al CRM mandar el video de bienvenida. `None` si el CRM no
+        tiene uno (404 `sin_bienvenida`, o un CRM que no conoce la ruta)."""
+        resp = await self._request(
+            "POST",
+            "/api/bot/messages/bienvenida",
+            json={"conversationId": conversation_id},
+        )
+        if resp.status_code == 404:
+            return None
+        if resp.status_code == 409:
+            raise CrmConflict(_conflict_code(resp))
+        if resp.status_code != 200:
+            raise CrmError(f"bienvenida devolvió {resp.status_code}")
+        data: dict[str, Any] = resp.json()
+        return data
+
     async def put_ficha(
         self, conversation_id: str, ficha: dict[str, Any]
     ) -> dict[str, Any]:

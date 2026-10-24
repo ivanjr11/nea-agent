@@ -503,10 +503,27 @@ def build_system_prompt(
         lines.append(f'- El lead llegó desde el anuncio: "{headline}".')
 
     if not conv.greeted:
-        lines.append(
-            "- Es el PRIMER contacto: saluda transparente, gancho + UNA pregunta."
-            + (" Personaliza el saludo mencionando el anuncio." if headline else "")
-        )
+        if profile.welcome_media_kind:
+            # El video ya trae la pregunta del filtro (su texto): el saludo lo
+            # presenta y no pregunta nada más, o el lead recibe dos preguntas.
+            que = "un video corto" if profile.welcome_media_kind == "video" else "una imagen"
+            lines.append(
+                f"- Es el PRIMER contacto: saluda transparente y breve, y dile que le "
+                f"compartes {que} donde se explica todo. Justo después de tu mensaje "
+                f"el sistema le envía {que} de bienvenida"
+                + (
+                    f' con este texto: "{profile.welcome_media_caption}"'
+                    if profile.welcome_media_caption
+                    else ""
+                )
+                + ". NO hagas ninguna pregunta en este mensaje ni repitas ese texto."
+                + (" Personaliza el saludo mencionando el anuncio." if headline else "")
+            )
+        else:
+            lines.append(
+                "- Es el PRIMER contacto: saluda transparente, gancho + UNA pregunta."
+                + (" Personaliza el saludo mencionando el anuncio." if headline else "")
+            )
 
     if offered:
         slot_txt = "; ".join(

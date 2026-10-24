@@ -499,6 +499,17 @@ async def run_turn(
         if sent:
             await ctx.store.add_message(conv.id, "assistant", final_text)
 
+    # Video de bienvenida: una sola vez por contacto, justo después del primer
+    # saludo. No si el turno termina en manos de una persona o en despedida.
+    if (
+        sent
+        and not conv.greeted
+        and profile.welcome_media_kind
+        and runtime.handoff_reason is None
+        and not cerrar_sin_rumbo
+    ):
+        await _enviar_bienvenida(ctx, conv.id, str(crm_conv_id), profile)
+
     # El handoff se ejecuta DESPUÉS de la despedida (si no, el CRM la rechaza
     # con 409 ai_paused).
     if runtime.handoff_reason is not None:
@@ -809,6 +820,35 @@ async def _send(ctx: AppContext, conv_id: int, crm_conv_id: str, text: str) -> b
         pending_id,
     )
     return False
+
+
+async def _enviar_bienvenida(
+    ctx: AppContext, conv_id: int, crm_conv_id: str, profile: Any
+) -> None:
+    """Pide al CRM el video de bienvenida. Best-effort: si falla, el saludo ya
+    salió y la conversación sigue; jamás se reintenta en otro turno (el lead
+    recibiría el video a destiempo). Su texto queda en el historial tal como
+    lo vio el lead: así el modelo sabe qué le preguntó el video."""
+    enviar = getattr(ctx.crm, "send_welcome_media", None)
+    if not callable(enviar):
+        return
+    for attempt in range(2):
+        try:
+            if await enviar(crm_conv_id) is None:
+                logger.info("bienvenida: el CRM no tiene video configurado")
+                return
+            break
+        except CrmConflict as exc:
+            logger.info("bienvenida bloqueada por el CRM (%s)", exc.code)
+            return
+        except CrmError as exc:
+            logger.warning("bienvenida falló (intento %d): %s", attempt + 1, exc)
+            if attempt == 0:
+                await asyncio.sleep(1.0)
+    else:
+        return
+    if profile.welcome_media_caption:
+        await ctx.store.add_message(conv_id, "assistant", profile.welcome_media_caption)
 
 
 async def _safe_handoff(
