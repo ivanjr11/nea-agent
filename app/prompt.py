@@ -390,6 +390,17 @@ def _linea_cerrada(cerrada: dict) -> str:
     return f"- Su cita del {label} ya no está vigente."
 
 
+def _minutos_es(minutos: int) -> str:
+    """30 → «30 minutos», 60 → «1 hora», 90 → «1 hora y 30 minutos»."""
+    horas, resto = divmod(minutos, 60)
+    partes = []
+    if horas:
+        partes.append(f"{horas} hora" + ("s" if horas > 1 else ""))
+    if resto:
+        partes.append(f"{resto} minuto" + ("s" if resto > 1 else ""))
+    return " y ".join(partes)
+
+
 def build_system_prompt(
     *,
     profile: BusinessProfile,
@@ -451,7 +462,18 @@ def build_system_prompt(
     )
     if agenda:
         lines.append(f"- Calendario (para la fecha de propose_slots): {calendario(now, tz)}.")
-        if not recordatorios:
+        if not recordatorios and profile.reminder_minutes:
+            # El CRM raíz con el recordatorio de Ajustes → Agenda encendido: lo
+            # manda él, solo, a todas las citas. No hay nada que preguntarle
+            # al lead ni otro recordatorio que prometer.
+            lines.append(
+                f"- El sistema le manda al lead un recordatorio por WhatsApp "
+                f"{_minutos_es(profile.reminder_minutes)} antes de cada cita, solo. "
+                "Al confirmar la cita puedes decirle que le llegará. No le "
+                "preguntes si lo quiere ni prometas otros (nada de «te escribo "
+                "un día antes»)."
+            )
+        elif not recordatorios:
             # En el e2e contra el CRM raíz, tras confirmar la hora de la cita:
             # «¿Te mando un recordatorio antes de la sesión?». Ese CRM no
             # manda recordatorios y Nea no tiene con qué mandarlos.
