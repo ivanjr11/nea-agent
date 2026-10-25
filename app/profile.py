@@ -64,6 +64,10 @@ class BusinessProfile:
     # cada contacto. `None` = no hay, o el CRM no lo conoce.
     welcome_media_kind: str | None = None
     welcome_media_caption: str | None = None
+    # Recordatorio de la cita (bloque `appointmentReminder` del perfil): el CRM
+    # le escribe al lead estos minutos antes de cada cita, por su cuenta. Nea
+    # no manda nada: solo lo sabe para no negarlo. `None` = no hay.
+    reminder_minutes: int | None = None
 
     def permite(self, clave: str) -> bool:
         """¿Está encendida esta herramienta? `escalar` siempre lo está: es la
@@ -101,7 +105,18 @@ def profile_from_payload(payload: dict[str, Any], default_name: str) -> Business
         tools=_herramientas(prof.get("tools")),
         **_ia(payload.get("llm")),
         **_bienvenida(payload.get("welcomeMedia")),
+        reminder_minutes=_recordatorio(payload.get("appointmentReminder")),
     )
+
+
+def _recordatorio(valor: Any) -> int | None:
+    """El bloque `appointmentReminder` del perfil: `{minutesBefore}` o `null`."""
+    if not isinstance(valor, dict):
+        return None
+    minutos = valor.get("minutesBefore")
+    if isinstance(minutos, bool) or not isinstance(minutos, int) or minutos <= 0:
+        return None
+    return minutos
 
 
 def _bienvenida(valor: Any) -> dict[str, str | None]:
